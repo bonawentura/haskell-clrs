@@ -1,0 +1,35 @@
+digraph 
+{
+ 
+O [ label="1" ]
+OL [ label="1" ]
+OLL [ label="1" ]
+OR [ label="2" ]
+ORL [ label="2" ]
+ORLL [ label="2" ]
+ORR [ label="3" ]
+ORRL [ label="3" ]
+ORRLL [ label="3" ]
+ORRR [ label="4" ]
+ORRRL [ label="4" ]
+ORRRLL [ label="4" ]
+ORRRR [ label="5" ]
+ORRRRL [ label="5" ]
+ORRRRLL [ label="5" ] 
+ 
+O -> OL
+O -> OR
+OL -> OLL
+OR -> ORL
+OR -> ORR
+ORL -> ORLL
+ORR -> ORRL
+ORR -> ORRR
+ORRL -> ORRLL
+ORRR -> ORRRL
+ORRR -> ORRRR
+ORRRL -> ORRRLL
+ORRRR -> ORRRRL
+ORRRRL -> ORRRRLL 
+ }
+

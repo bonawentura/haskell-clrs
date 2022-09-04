@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 module MainLib
   ( run,
     Heap,
@@ -7,12 +6,25 @@ module MainLib
   )
 where
 
+import qualified Data.Bifunctor
+import Text.Printf
+
 run :: String -> IO ()
 run = putStrLn
 
 x = [1, 2, 3, 4, 5] :: [Int]
 
-y = fromList x :: MaxHeap Int
+y = fromList . concat . replicate 3 $ x :: MaxHeap Int
+
+data Direction = L | R | O deriving (Show)
+
+type Breadcrumbs = [Direction]
+
+type Node a = (Breadcrumbs, a)
+
+type Edge a = (Node a, Node a)
+
+type DotNode = (String, String)
 
 class Heap h where
   isEmpty :: (Ord a) => h a -> Bool
@@ -20,69 +32,81 @@ class Heap h where
   height :: (Ord a) => h a -> Int
   fromList :: (Ord a) => [a] -> h a
 
+data MaxHeap a = E | MaxHeap {node :: Node a, left :: MaxHeap a, right :: MaxHeap a} deriving (Show)
 
-data MaxHeap a
-  = Empty
-  | T a (MaxHeap a) (MaxHeap a)
+nid :: MaxHeap a -> Breadcrumbs
+nid E = []
+nid h = fst . node $ h
 
--- deriving Show
+val :: MaxHeap a -> a
+val = snd . node
 
+maxHeapCreate :: Node a -> MaxHeap a -> MaxHeap a -> MaxHeap a
+maxHeapCreate (nid, a) l r = MaxHeap {node = (nid, a), left = l, right = r}
 
 instance Heap MaxHeap where
-  isEmpty Empty = True
+  isEmpty E = True
   isEmpty _ = False
 
-  height Empty = 0
-  height (T _ l r) = 1 + max (height l) (height r)
+  height E = 0
+  height h = 1 + max (height . left $ h) (height . right $ h)
 
-  insert Empty       v   = T v Empty Empty
-  insert (T v l r) v'  =
-    if v' > v
-      then T v (insert l v')  r
-      else T v l              (insert r v')
+  insert h = indexedInsert h [O]
 
-  fromList [] = Empty
-  fromList as = foldl insert Empty as
+  fromList [] = E
+  fromList as = foldl insert E as
 
-instance (Show a) => Show (MaxHeap a) where
-  show Empty = ""
-  show (T v r l) = "\n " ++ show v ++ show r ++ show l
+indexedInsert :: (Ord a) => MaxHeap a -> Breadcrumbs -> a -> MaxHeap a
+indexedInsert E breadcrumbs a = maxHeapCreate (breadcrumbs, a) E E
+indexedInsert heap breadcrumbs a =
+  if a > val heap
+    then maxHeapCreate (node heap) (left heap) (indexedInsert (right heap) (nid heap ++ [R]) a)
+    else maxHeapCreate (node heap) (indexedInsert (left heap) (nid heap ++ [L]) a) (right heap)
 
 instance Functor MaxHeap where
-  fmap _ Empty = Empty
-  fmap f (T v l r) = T (f v) (fmap f l) (fmap f r)
+  fmap _ E = E
+  fmap f h = maxHeapCreate (nid h, f (val h)) (fmap f (left h)) (fmap f (right h))
 
-data Direction = L | R
+heapEdges :: MaxHeap a -> [Edge a]
+heapEdges E = []
+heapEdges h = lEdge ++ rEdge ++ (heapEdges . left $ h) ++ (heapEdges . right $ h)
+  where
+    lEdge = case left h of
+      E -> []
+      _ -> [(node h, node . left $ h)]
+    rEdge = case right h of
+      E -> []
+      _ -> [(node h, node . right $ h)]
 
-type Breadcrumbs = [Direction]
+heapNodes :: MaxHeap a -> [Node a]
+heapNodes E = []
+heapNodes h = node h : (heapNodes . left $ h) ++ (heapNodes . right $ h)
 
-toList :: MaxHeap a -> [a]
-toList Empty = []
-toList (T v l r) = v : toList l ++ toList r
+breadcrumbToString :: Breadcrumbs -> String
+breadcrumbToString = foldr (\c acc -> show c ++ acc) ""
 
-type Vert a = (String, a)
-type Edge a = (Vert a, Vert a)
+nodeCrumb = breadcrumbToString . fst
 
-cVert :: String -> a -> Vert a
-cVert str v = (str, v)
+nodeToDot :: (Show a) => Node a -> DotNode
+nodeToDot n = (nodeCrumb n, show . snd $ n)
 
-cEdge :: Vert a -> Vert a -> Edge a
-cEdge v1 v2 = (v1, v2)
+dotNode :: DotNode -> String
+dotNode n = printf "\n%s [ label=\"%s\" ]" crumb value where (crumb, value) = n
 
+-- nodeToDotString = dotNode . nodeToDot
 
-toVert :: (Show a) => a -> Vert a
-toVert a = ("n" ++ show a, a)
+dotEdge :: (Show a) => Edge a -> String
+dotEdge (n1, n2) = printf "\n%s -> %s" (nodeCrumb n1) (nodeCrumb n2)
 
-toEdge :: (Show a) => a -> a -> Edge a
-toEdge v1 v2 = (toVert v1, toVert v2)
+heapDot :: (Show a) => MaxHeap a -> String
+heapDot h = printf "digraph \n{\n %s \n %s \n }\n\n" nodes edges
+  where
+    nodes = concatMap (dotNode . nodeToDot) (heapNodes h)
+    edges = concatMap dotEdge (heapEdges h)
 
-toEdgeList :: (Show a) => MaxHeap a -> [Edge a]
-toEdgeList Empty = []
-toEdgeList (T v Empty         Empty) = []
-toEdgeList (T v (T v' l r)    Empty) = toEdge v v' : toEdgeList l ++ toEdgeList r
-toEdgeList (T v Empty         (T v' l r)) = toEdge v v' : toEdgeList l ++ toEdgeList r
-toEdgeList (T v (T lv ll lr)  (T rv rl rr)) = toEdge v lv : toEdge v rv : ell ++ elr ++ erl ++ err
-  where ell = toEdgeList ll
-        elr = toEdgeList lr
-        erl = toEdgeList rl
-        err = toEdgeList rr
+toFile :: (Show a) => MaxHeap a -> IO ()
+toFile E = return ()
+toFile h = do
+  writeFile "./graph.dot" contents
+  where
+    contents = heapDot h
