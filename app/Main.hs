@@ -1,8 +1,8 @@
 module Main where
 
-import MainLib
+-- import MainLib
+import qualified BinTree as BT
 
-main :: IO ()
-main = do
-  putStrLn "Hello, Haskell!"
-  run "asd"
+-- main :: IO ()
+-- main = do
+--   runDefault

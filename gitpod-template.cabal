@@ -23,7 +23,7 @@ extra-source-files:
     README.md
 
 library
-    exposed-modules:  MainLib
+    exposed-modules:  BinTree
 
     -- Modules included in this library but not exported.
     -- other-modules:

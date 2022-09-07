@@ -1,20 +1,20 @@
 module MainLib
   ( run,
+    runDefault,
     Heap,
     MaxHeap,
     x,
   )
 where
-
-import qualified Data.Bifunctor
+-- import qualified Data.Bifunctor
 import Text.Printf
 
 run :: String -> IO ()
 run = putStrLn
 
-x = [1, 2, 3, 4, 5] :: [Int]
+x = [1, 4, 2, 3, 9, 7, 8, 10, 14, 16] :: [Int]
 
-y = fromList . concat . replicate 3 $ x :: MaxHeap Int
+y = fromList x :: MaxHeap Int
 
 data Direction = L | R | O deriving (Show)
 
@@ -59,9 +59,32 @@ instance Heap MaxHeap where
 indexedInsert :: (Ord a) => MaxHeap a -> Breadcrumbs -> a -> MaxHeap a
 indexedInsert E breadcrumbs a = maxHeapCreate (breadcrumbs, a) E E
 indexedInsert heap breadcrumbs a =
-  if a > val heap
-    then maxHeapCreate (node heap) (left heap) (indexedInsert (right heap) (nid heap ++ [R]) a)
-    else maxHeapCreate (node heap) (indexedInsert (left heap) (nid heap ++ [L]) a) (right heap)
+  let (valueIntoCurrent, valueIntoChild) = if a >= val heap then (a, val heap) else (val heap, a)
+      isLeftNodeBiggerOrEq = isRightChildSmaller heap
+      leftNode = if isLeftNodeBiggerOrEq then indexedInsert (left heap) (nid heap ++ [L]) valueIntoChild else left heap
+      rightNode = if isLeftNodeBiggerOrEq then right heap else indexedInsert (right heap) (nid heap ++ [R]) valueIntoChild
+   in maxHeapCreate (nid heap, valueIntoCurrent) leftNode rightNode
+
+isRightChildSmaller :: (Ord a) => MaxHeap a -> Bool
+isRightChildSmaller E = True
+isRightChildSmaller (MaxHeap _ E E) = True
+isRightChildSmaller (MaxHeap _ E _) = True
+isRightChildSmaller (MaxHeap _ _ E) = False
+isRightChildSmaller (MaxHeap _ l r) = val l > val r
+
+-- swapIfBigger :: (Ord a) => MaxHeap a ->
+
+--   maxHeapCreate currentNode leftNode rightNode where
+--  currentNode = if a >= val heap
+--   then (breadcrumbs, a)
+--   else node heap
+--  leftNode = if a >= val heap
+--   then
+-- then maxHeapCreate swappedNode l r where swappedNode = -- swap current and insert into bigger child
+-- else E -- insert into bigger child
+
+-- then maxHeapCreate (node heap) (left heap) (indexedInsert (right heap) (nid heap ++ [R]) a)
+-- else maxHeapCreate (node heap) (indexedInsert (left heap) (nid heap ++ [L]) a) (right heap)
 
 instance Functor MaxHeap where
   fmap _ E = E
@@ -104,9 +127,13 @@ heapDot h = printf "digraph \n{\n %s \n %s \n }\n\n" nodes edges
     nodes = concatMap (dotNode . nodeToDot) (heapNodes h)
     edges = concatMap dotEdge (heapEdges h)
 
-toFile :: (Show a) => MaxHeap a -> IO ()
-toFile E = return ()
-toFile h = do
+toFile :: String -> IO ()
+toFile contents = do
   writeFile "./graph.dot" contents
-  where
-    contents = heapDot h
+
+runDefault = toFile . heapDot $ y
+
+{- 
+  L' = max L R T
+
+ -}
