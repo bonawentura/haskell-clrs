@@ -21,6 +21,7 @@ data GameState = GameState
 
 initialState = GameState {guesses = "", lives = 99, blacklist = "qwerty"}
 
+
 -- -- istat' :: Char -> State GameState ()
 -- istat' c = state $ \gs -> ((), gs {guesses = c : guesses gs})
 
